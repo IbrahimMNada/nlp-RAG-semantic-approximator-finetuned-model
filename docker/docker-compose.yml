@@ -1,0 +1,51 @@
+name: NLP Similarity Approximator API
+
+services:
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    restart: unless-stopped
+
+  seq:
+    image: datalust/seq:latest
+    container_name: seq
+    environment:
+      ACCEPT_EULA: "Y"
+      SEQ_PASSWORD: "P@ssw0rd"
+    ports:
+      - "5341:80"
+      - "5342:5341"
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    container_name: redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redisinsight:
+    image: redis/redisinsight:2.46.0
+    container_name: redisinsight
+    environment:
+      - RI_SERVER_MODE=1         # Run RedisInsight in headless server mode (fix for Windows/WSL)
+    ports:
+      - "8081:5540"              # Expose the web UI on localhost
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+volumes:
+  redis_data:

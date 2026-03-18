@@ -1,0 +1,22 @@
+name: NLP Similarity Approximator API
+
+services:
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"                     # AMQP
+      - "15672:15672"                   # RabbitMQ Management UI
+    restart: unless-stopped
+
+  seq:
+    image: datalust/seq:latest
+    container_name: seq
+    environment:
+      ACCEPT_EULA: "Y"
+      SEQ_PASSWORD: "P@ssw0rd"        # set your password here
+    ports:
+      - "5341:80"                       # Seq UI
+      - "5342:5341"                     # Ingestion endpoint for logs
+    restart: unless-stopped
