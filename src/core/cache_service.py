@@ -21,7 +21,7 @@ class RedisCacheService:
     Gracefully degrades if Redis is not available.
     """
     
-    def __init__(self, redis_url: str = "redis://localhost:6379/0"):
+    def __init__(self, redis_url: str = "redis://localhost:6380/0"):
         """
         Initialize Redis cache service.
         
@@ -240,6 +240,6 @@ def _get_redis_url() -> str:
         settings = get_settings()
         return settings.REDIS_URL
     except Exception:
-        return "redis://localhost:6379/0"
+        return "redis://localhost:6380/0"
 
 cache_service = RedisCacheService(redis_url=_get_redis_url())

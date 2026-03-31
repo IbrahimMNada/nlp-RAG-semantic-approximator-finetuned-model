@@ -101,7 +101,7 @@ ollama pull llama3.2
 cd docker && docker compose up -d
 ```
 
-Starts: RabbitMQ (5672, management on 15672), Redis (6379), RedisInsight (8081), Seq (5341).
+Starts: RabbitMQ (5673, management on 15673), Redis (6380), RedisInsight (8082), Seq (5343), PostgreSQL (5433), Ollama (11435).
 
 ### Running
 
@@ -130,13 +130,13 @@ All settings via environment variables (`.env`). See `.env.example` for the full
 | Variable | Purpose | Default |
 |----------|---------|---------|
 | `DATABASE_URL` | PostgreSQL connection string | *(required)* |
-| `OLLAMA_URL` | Ollama server for embeddings | `http://localhost:11434` |
+| `OLLAMA_URL` | Ollama server for embeddings | `http://localhost:11435` |
 | `OLLAMA_MODEL_NAME` | Embedding model name | `nomic-embed-text` |
 | `LLM_PROVIDER` | RAG LLM backend: `chatgpt`, `claude`, `deepseek`, `ollama` | `chatgpt` |
 | `OPENAI_API_KEY` | OpenAI key (for ChatGPT provider) | |
 | `DEEPSEEK_API_KEY` | DeepSeek key | |
 | `QUEUE_ENABLED` | Enable RabbitMQ async embeddings | `false` |
-| `REDIS_URL` | Redis connection URL | `redis://localhost:6379/0` |
+| `REDIS_URL` | Redis connection URL | `redis://localhost:6380/0` |
 | `API_KEY_ENABLED` | Require `X-API-Key` header | `false` |
 | `API_KEY` | Expected API key value | |
 | `CORS_ALLOWED_ORIGINS` | Allowed CORS origins | `["*"]` |
@@ -391,9 +391,9 @@ uvicorn src.main:app --reload                     # Start with hot reload
 |---------|-----|
 | Swagger UI | http://localhost:8000/docs |
 | ReDoc | http://localhost:8000/redoc |
-| RabbitMQ Management | http://localhost:15672 |
-| RedisInsight | http://localhost:8081 |
-| Seq | http://localhost:5341 |
+| RabbitMQ Management | http://localhost:15673 |
+| RedisInsight | http://localhost:8082 |
+| Seq | http://localhost:5343 |
 
 ## License
 
