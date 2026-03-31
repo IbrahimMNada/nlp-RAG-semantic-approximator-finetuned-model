@@ -56,6 +56,9 @@ services:
     environment:
       ACCEPT_EULA: "Y"
       SEQ_FIRSTRUN_ADMINPASSWORD: "P@ssw0rd"
+      SEQ_API_CANONICALURI: "http://localhost:5343"
+      SEQ_FIRSTRUN_ADMINAPIKEYTITLE: "app"
+      SEQ_FIRSTRUN_ADMINAPIKEYTOKEN: "seq-app-dev-token"
     ports:
       - "5343:80"
       - "5344:5341"
