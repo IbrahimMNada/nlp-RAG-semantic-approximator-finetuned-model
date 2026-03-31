@@ -2,12 +2,30 @@ name: NLP Similarity Approximator API
 
 services:
 
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: postgres
+    environment:
+      POSTGRES_USER: nlp_user
+      POSTGRES_PASSWORD: nlp_s3cur3_pass
+      POSTGRES_DB: nlp_similarity_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nlp_user -d nlp_similarity_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   rabbitmq:
     image: rabbitmq:3-management
     container_name: rabbitmq
     ports:
-      - "5672:5672"                     # AMQP
-      - "15672:15672"                   # RabbitMQ Management UI
+      - "5673:5672"                     # AMQP
+      - "15673:15672"                   # RabbitMQ Management UI
     restart: unless-stopped
 
   seq:
@@ -17,6 +35,9 @@ services:
       ACCEPT_EULA: "Y"
       SEQ_PASSWORD: "P@ssw0rd"        # set your password here
     ports:
-      - "5341:80"                       # Seq UI
-      - "5342:5341"                     # Ingestion endpoint for logs
+      - "5343:80"                       # Seq UI
+      - "5344:5341"                     # Ingestion endpoint for logs
     restart: unless-stopped
+
+volumes:
+  postgres_data:

@@ -23,8 +23,9 @@ from .core.security import limiter
 settings = get_settings()
 
 # Configure logging
+log_level = logging.DEBUG if settings.is_development else logging.INFO
 logging.basicConfig(
-    level=logging.INFO,
+    level=log_level,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),  # Console output
@@ -92,13 +93,17 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
 
 
 # Create app instance
+docs_url = "/docs" if not settings.is_production else None
+redoc_url = "/redoc" if not settings.is_production else None
+openapi_url = "/openapi.json" if not settings.is_production else None
+
 app = FastAPI(
     title="NLP Semantic Lab",
     description="A hands-on learning laboratory for exploring NLP, semantic search, RAG, and embeddings",
     version="1.0.0",
-    docs_url="/docs",  # Swagger UI
-    redoc_url="/redoc",  # ReDoc
-    openapi_url="/openapi.json"  # OpenAPI schema
+    docs_url=docs_url,
+    redoc_url=redoc_url,
+    openapi_url=openapi_url,
 )
 
 # Rate limiter state
@@ -122,7 +127,20 @@ app.add_middleware(CorrelationIdMiddleware)
 async def lifespan(app_instance: FastAPI):
     """Application lifespan manager for startup and shutdown events."""
     # Startup
-    logger.info("Starting application...")
+    logger.info(f"Starting application in [{settings.ENV}] environment...")
+
+    # Auto-run Alembic migrations in development
+    if settings.is_development:
+        try:
+            from alembic.config import Config as AlembicConfig
+            from alembic import command as alembic_command
+
+            alembic_cfg = AlembicConfig("alembic.ini")
+            alembic_cfg.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+            alembic_command.upgrade(alembic_cfg, "head")
+            logger.info("Alembic migrations applied successfully")
+        except Exception as e:
+            logger.warning(f"Alembic migration failed: {e}")
     
     # ----- Register domain-specific web scrapers -----
     scraper_factory = get_web_scraper_factory()
