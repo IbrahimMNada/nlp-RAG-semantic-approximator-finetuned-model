@@ -16,6 +16,8 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 import logging
 import seqlog
+import sys
+import time
 import uuid
 from .core.config import get_settings
 from .core.security import limiter
@@ -127,11 +129,36 @@ app.add_middleware(CorrelationIdMiddleware)
 @asynccontextmanager
 async def lifespan(app_instance: FastAPI):
     """Application lifespan manager for startup and shutdown events."""
+    startup_start = time.time()
+
+    # ANSI helpers
+    G = "\033[92m"
+    Y = "\033[93m"
+    C = "\033[96m"
+    R = "\033[91m"
+    B = "\033[1m"
+    RST = "\033[0m"
+    CHK = "✔"
+    CRS = "✘"
+    ARR = "→"
+
+    def step(icon, color, msg):
+        sys.stderr.write(f"  {color}{icon}{RST} {msg}\n")
+        sys.stderr.flush()
+
+    # Banner
+    sys.stderr.write(f"\n{B}{'═' * 55}{RST}\n")
+    sys.stderr.write(f"  {B}{C}NLP Semantic Lab{RST}  —  Starting up\n")
+    sys.stderr.write(f"  Environment: {B}{settings.ENV}{RST}\n")
+    sys.stderr.write(f"{B}{'═' * 55}{RST}\n\n")
+    sys.stderr.flush()
+
     # Startup
     logger.info(f"Starting application in [{settings.ENV}] environment...")
 
-    # Auto-run Alembic migrations in development
+    # ── Database migrations ──
     if settings.is_development:
+        step(ARR, C, "Applying database migrations...")
         try:
             from alembic.config import Config as AlembicConfig
             from alembic import command as alembic_command
@@ -139,47 +166,55 @@ async def lifespan(app_instance: FastAPI):
             alembic_cfg = AlembicConfig("alembic.ini")
             alembic_cfg.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
             alembic_command.upgrade(alembic_cfg, "head")
+            step(CHK, G, "Database migrations applied")
             logger.info("Alembic migrations applied successfully")
         except Exception as e:
+            step(CRS, R, f"Database migration failed: {e}")
             logger.warning(f"Alembic migration failed: {e}")
+    else:
+        step(ARR, Y, "Skipping auto-migration (non-development environment)")
     
-    # ----- Register domain-specific web scrapers -----
+    # ── Web scrapers ──
+    step(ARR, C, "Configuring web scraper factory...")
     scraper_factory = get_web_scraper_factory()
-    # The DefaultWebScraper is already set as the fallback.
-    # Register it (or other IWebScraper implementations) for specific domains:
     scraper_factory.register("https://mxy.com", DefaultWebScraper())
-
-    
-    # scraper_factory.register("example.com", CustomScraper())
+    step(CHK, G, "Web scraper factory configured")
     logger.info("Web scraper factory configured")
 
-    # Register all modules with app instance (includes router registration)
+    # ── Module registration ──
+    step(ARR, C, "Registering modules...")
     register_data_module(app_instance)
-    logger.info("Data module registered")
-    
     register_rag_module(app_instance)
-    logger.info("RAG module registered")
-    
     register_seo_generation_module(app_instance)
-    logger.info("SEO generation module registered")
-    
-    # Register base router
     app_instance.include_router(base_router)
-    logger.info("Base router registered")
+    step(CHK, G, "Modules registered: data, rag, seo_generation, base")
+    logger.info("All modules registered")
     
-    # Initialize cache service
+    # ── Cache service ──
+    step(ARR, C, "Connecting to cache service (Redis)...")
     await cache_service.connect()
+    step(CHK, G, "Cache service connected")
     logger.info("Cache service connected")
 
-    # Pull any missing Ollama models if auto-pull is enabled
+    # ── Ollama models ──
     await ensure_models()
+
+    # ── Startup complete ──
+    elapsed = time.time() - startup_start
+    sys.stderr.write(f"\n{B}{'═' * 55}{RST}\n")
+    sys.stderr.write(f"  {G}{CHK}{RST} {B}Application ready{RST} in {elapsed:.2f}s\n")
+    sys.stderr.write(f"{B}{'═' * 55}{RST}\n\n")
+    sys.stderr.flush()
+    logger.info(f"Application startup completed in {elapsed:.2f}s")
 
     
     yield
     
     # Shutdown
+    sys.stderr.write(f"\n  {Y}{ARR}{RST} Shutting down application...\n")
     logger.info("Shutting down application...")
     await cache_service.disconnect()
+    sys.stderr.write(f"  {G}{CHK}{RST} Application shutdown complete\n\n")
     logger.info("Application shutdown complete")
 
 
