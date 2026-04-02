@@ -27,3 +27,4 @@ accelerate==1.13.0
 peft==0.18.1
 bitsandbytes==0.49.0
 datasets==4.4.2
+sentence-transformers

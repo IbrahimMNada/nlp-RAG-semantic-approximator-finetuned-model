@@ -40,10 +40,6 @@ def _get_required_models() -> List[str]:
     # Embedding model — always needed
     models.append(settings.OLLAMA_MODEL_NAME)
 
-    # Reranker model — only if reranker is enabled
-    if settings.RERANKER_ENABLED:
-        models.append(settings.RERANKER_MODEL)
-
     # Ollama LLM model — only if Ollama is the active LLM provider
     if settings.LLM_PROVIDER == "ollama":
         models.append(settings.OLLAMA_LLM_MODEL)

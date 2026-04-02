@@ -1,10 +1,10 @@
 """
-Reranker service using Ollama's rerank API to re-score retrieval candidates.
+Reranker service using sentence-transformers CrossEncoder to re-score retrieval candidates.
 """
 import logging
-from typing import List
+from typing import List, Optional
 
-import httpx
+from sentence_transformers import CrossEncoder
 
 from ....core.config import get_settings
 
@@ -12,7 +12,19 @@ logger = logging.getLogger(__name__)
 
 
 class RerankerService:
-    """Re-scores candidate paragraphs using a reranker model via Ollama."""
+    """Re-scores candidate paragraphs using a CrossEncoder model."""
+
+    def __init__(self):
+        self._model: Optional[CrossEncoder] = None
+
+    def _ensure_model(self) -> CrossEncoder:
+        """Lazy-load the cross-encoder model on first use."""
+        if self._model is None:
+            settings = get_settings()
+            logger.info(f"Loading reranker model: {settings.RERANKER_MODEL}")
+            self._model = CrossEncoder(settings.RERANKER_MODEL)
+            logger.info("Reranker model loaded")
+        return self._model
 
     async def rerank(
         self,
@@ -22,7 +34,7 @@ class RerankerService:
         content_key: str = "content",
     ) -> List[dict]:
         """
-        Re-score and re-sort candidates via Ollama's rerank endpoint.
+        Re-score and re-sort candidates using the cross-encoder.
 
         Args:
             query: The original search query text.
@@ -36,27 +48,19 @@ class RerankerService:
         if not candidates:
             return candidates
 
-        settings = get_settings()
-        documents = [c[content_key] for c in candidates]
+        model = self._ensure_model()
+        pairs = [(query, c[content_key]) for c in candidates]
+        scores = model.predict(pairs).tolist()
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
-                f"{settings.OLLAMA_URL}/api/rerank",
-                json={
-                    "model": settings.RERANKER_MODEL,
-                    "query": query,
-                    "documents": documents,
-                    "top_k": top_k,
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
+        scored = sorted(
+            zip(candidates, scores),
+            key=lambda x: x[1],
+            reverse=True,
+        )
 
         results = []
-        for item in data.get("results", []):
-            idx = item["index"]
-            candidate = candidates[idx]
-            candidate["reranker_score"] = round(item["relevance_score"], 4)
+        for candidate, score in scored[:top_k]:
+            candidate["reranker_score"] = round(float(score), 4)
             results.append(candidate)
 
         logger.info(
