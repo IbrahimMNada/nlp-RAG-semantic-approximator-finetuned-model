@@ -21,6 +21,7 @@ import time
 import uuid
 from .core.config import get_settings
 from .core.security import limiter
+from .core.log_formatter import setup_terminal_logging
 
 # Get settings
 settings = get_settings()
@@ -30,11 +31,9 @@ log_level = logging.DEBUG if settings.is_development else logging.INFO
 logging.basicConfig(
     level=log_level,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),  # Console output
-      #  logging.FileHandler('app.log')  # File output
-    ]
+    handlers=[],  # no default handlers — colored handler below
 )
+setup_terminal_logging(level=log_level)
 
 # Configure Seq logging if enabled
 if settings.SEQ_ENABLED and settings.SEQ_SERVER_URL:
