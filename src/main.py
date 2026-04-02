@@ -9,6 +9,7 @@ from .modules.rag import register_rag_module
 from .modules.seo_generation import register_seo_generation_module
 from .core.exceptions.bad_request_exception import BadRequestException
 from .core.cache_service import cache_service
+from .core.model_manager import ensure_models
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from slowapi import _rate_limit_exceeded_handler
@@ -169,6 +170,9 @@ async def lifespan(app_instance: FastAPI):
     # Initialize cache service
     await cache_service.connect()
     logger.info("Cache service connected")
+
+    # Pull any missing Ollama models if auto-pull is enabled
+    await ensure_models()
 
     
     yield

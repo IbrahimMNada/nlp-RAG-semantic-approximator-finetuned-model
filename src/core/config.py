@@ -71,6 +71,14 @@ class Settings(BaseSettings):
     API_KEY_ENABLED: bool = False  # Set to True to require API key
     API_KEY: str = ""  # API key value when enabled
 
+    # Reranker settings
+    RERANKER_ENABLED: bool = False
+    RERANKER_MODEL: str = "BAAI/bge-reranker-v2-m3"
+    RERANKER_TOP_K_MULTIPLIER: int = 3  # Over-fetch factor: limit * multiplier candidates from pgvector
+
+    # Model auto-pull: download required Ollama models on startup
+    AUTO_PULL_MODELS: bool = False
+
     # CORS settings
     CORS_ALLOWED_ORIGINS: List[str] = ["*"]  # Restrict in production
 

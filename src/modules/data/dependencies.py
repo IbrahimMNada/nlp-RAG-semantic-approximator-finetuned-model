@@ -12,6 +12,7 @@ from .services.web_scraper_factory import WebScraperFactory
 from .services.embedding_service import EmbeddingService
 from .services.article_repository import ArticleRepository
 from .services.data_service import DataService
+from .services.reranker_service import RerankerService
 
 
 # ============== Web Scraper Factory ==============
@@ -44,11 +45,22 @@ def get_article_repository() -> ArticleRepository:
 ArticleRepositoryDep = Annotated[ArticleRepository, Depends(get_article_repository)]
 
 
-# ============== Data Service ==============
+# ============== Reranker Service ==============
+@lru_cache()
+def get_reranker_service() -> RerankerService:
+    """Singleton reranker service."""
+    return RerankerService()
+
+
+RerankerServiceDep = Annotated[RerankerService, Depends(get_reranker_service)]
+
+
+# ============== Data Service ==========================
 def get_data_service(
     scraper_factory: WebScraperFactoryDep,
     embedding_service: EmbeddingServiceDep,
     article_repository: ArticleRepositoryDep,
+    reranker_service: RerankerServiceDep,
 ) -> DataService:
     """
     DataService with all dependencies injected.
@@ -58,6 +70,7 @@ def get_data_service(
         scraper_factory=scraper_factory,
         embedding_service=embedding_service,
         article_repository=article_repository,
+        reranker_service=reranker_service,
     )
 
 

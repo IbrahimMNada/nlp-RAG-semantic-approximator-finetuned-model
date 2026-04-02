@@ -31,6 +31,7 @@ from ....abstractions.interfaces.web_scraper_interface import IWebScraper
 from .web_scraper_factory import WebScraperFactory
 from .embedding_service import EmbeddingService
 from .article_repository import ArticleRepository
+from .reranker_service import RerankerService
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,7 @@ class DataService:
         scraper_factory: WebScraperFactory,
         embedding_service: EmbeddingService,
         article_repository: ArticleRepository,
+        reranker_service: RerankerService,
         session_factory: SessionFactory = get_async_db_session,
     ):
         """
@@ -55,11 +57,13 @@ class DataService:
             scraper_factory: Factory that resolves scrapers by URL domain
             embedding_service: EmbeddingService instance
             article_repository: ArticleRepository instance
+            reranker_service: RerankerService instance for cross-encoder reranking
             session_factory: Factory for creating async DB sessions (injectable for testing)
         """
         self._scraper_factory = scraper_factory
         self._embedding_service = embedding_service
         self._article_repository = article_repository
+        self._reranker_service = reranker_service
         self._session_factory = session_factory
     
     
@@ -499,21 +503,36 @@ class DataService:
             
             logger.info(f"Generated query embedding for text: '{search_dto.text[:50]}...'")
             
-            # Search for similar paragraphs
+            # Search for similar paragraphs (over-fetch if reranker is enabled)
+            settings = get_settings()
+            fetch_limit = search_dto.limit
+            if settings.RERANKER_ENABLED:
+                fetch_limit = search_dto.limit * settings.RERANKER_TOP_K_MULTIPLIER
+
             query_start = time.time()
             async with self._session_factory() as session:
                 results = await self._article_repository.search_similar_paragraphs(
                     session,
                     query_embedding=query_embedding,
-                    limit=search_dto.limit,
+                    limit=fetch_limit,
                     threshold=search_dto.threshold,
                     min_words=search_dto.min_words
                 )
             
+            # Rerank if enabled
+            if settings.RERANKER_ENABLED and results:
+                results = await self._reranker_service.rerank(
+                    query=search_dto.text,
+                    candidates=results,
+                    top_k=search_dto.limit,
+                    content_key="content",
+                )
+
             query_duration = time.time() - query_start
             logger.info(
                 f"Paragraph search completed in {query_duration:.2f}s, "
                 f"found {len(results)} matches (min_words={search_dto.min_words})"
+                f"{' [reranked]' if settings.RERANKER_ENABLED else ''}"
             )
             
             # Build response
