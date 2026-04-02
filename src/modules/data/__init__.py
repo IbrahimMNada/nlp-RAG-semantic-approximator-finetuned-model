@@ -2,7 +2,7 @@
 Data module - handles article scraping, embeddings, and similarity search.
 """
 from .routes import router as data_router
-from .dependencies import get_web_scraper_factory, get_embedding_service, get_article_repository
+from .dependencies import get_web_scraper_factory, get_embedding_service, get_article_repository, get_reranker_service
 from .services.data_service import DataService
 from .services.web_scraper_factory import WebScraperFactory
 from ...shared.event_bus import register as bus_register
@@ -15,6 +15,7 @@ def _register_event_handlers():
         scraper_factory=get_web_scraper_factory(),
         embedding_service=get_embedding_service(),
         article_repository=get_article_repository(),
+        reranker_service=get_reranker_service(),
     )
 
     bus_register(
