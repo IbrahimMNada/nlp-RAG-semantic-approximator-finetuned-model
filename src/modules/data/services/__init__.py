@@ -2,3 +2,5 @@ from .web_scraper import DefaultWebScraper
 from .data_service import DataService
 from .embedding_service import EmbeddingService
 from .article_repository import ArticleRepository
+from .ollama_embedding_provider import OllamaEmbeddingProvider
+from .llamacpp_embedding_provider import LlamaCppEmbeddingProvider

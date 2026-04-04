@@ -5,67 +5,32 @@ import logging
 from typing import List, Tuple, Optional
 
 import numpy as np
-from ollama import AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ....core.config import get_settings
-from ....shared.text_utils import normalize_arabic
+from ....abstractions.interfaces.embedding_provider_interface import IEmbeddingProvider
 from ..entities import ParagraphEmbedding1024, ArticleEmbedding1024
 
 logger = logging.getLogger(__name__)
 
 
 class EmbeddingService:
-    """Handles embedding generation and storage."""
+    """Handles embedding generation and storage using a pluggable provider."""
     
-    def __init__(self):
-        self._client: Optional[AsyncClient] = None
-        self._model_pulled: bool = False
-    
-    def _get_client(self) -> AsyncClient:
-        """Lazy initialization of Ollama client."""
-        if self._client is None:
-            settings = get_settings()
-            self._client = AsyncClient(host=settings.OLLAMA_URL)
-        return self._client
-
-    async def _ensure_model(self) -> None:
-        """Pull the embedding model if not already available."""
-        if self._model_pulled:
-            return
-        settings = get_settings()
-        client = self._get_client()
-        try:
-            models = await client.list()
-            model_names = [m.get("name", m.get("model", "")) for m in models.get("models", [])]
-            if not any(settings.OLLAMA_MODEL_NAME in name for name in model_names):
-                logger.info(f"Pulling model '{settings.OLLAMA_MODEL_NAME}'...")
-                await client.pull(settings.OLLAMA_MODEL_NAME)
-                logger.info(f"Model '{settings.OLLAMA_MODEL_NAME}' pulled successfully")
-            self._model_pulled = True
-        except Exception as e:
-            logger.warning(f"Could not verify/pull model: {e}")
+    def __init__(self, provider: IEmbeddingProvider):
+        self._provider = provider
     
     async def generate_embedding(self, text: str) -> List[float]:
         """
         Generate embedding for a single text.
         
         Args:
-            text: Text to embed (will be normalized)
+            text: Text to embed (will be normalized by provider)
             
         Returns:
             Embedding vector
         """
-        settings = get_settings()
-        client = self._get_client()
-        await self._ensure_model()
-        normalized = normalize_arabic(text)
-        response = await client.embed(
-            model=settings.OLLAMA_MODEL_NAME,
-            input=normalized
-        )
-        return response["embeddings"][0]
+        return await self._provider.generate_embedding(text)
     
     async def generate_embeddings_batch(
         self, 
@@ -194,6 +159,25 @@ class EmbeddingService:
             logger.warning(f"No embeddings generated for article {article_id}")
 
 
+def get_embedding_provider() -> IEmbeddingProvider:
+    """Factory for getting embedding provider based on configuration."""
+    from ....core.config import get_settings
+    settings = get_settings()
+    provider = settings.EMBEDDING_PROVIDER.lower()
+
+    if provider == "ollama":
+        from .ollama_embedding_provider import OllamaEmbeddingProvider
+        return OllamaEmbeddingProvider()
+    elif provider == "llamacpp":
+        from .llamacpp_embedding_provider import LlamaCppEmbeddingProvider
+        return LlamaCppEmbeddingProvider()
+    else:
+        raise ValueError(
+            f"Unsupported embedding provider: '{provider}'. "
+            f"Supported options are: ollama, llamacpp"
+        )
+
+
 # Singleton instance
 _embedding_service_instance: Optional[EmbeddingService] = None
 
@@ -202,5 +186,5 @@ def get_embedding_service() -> EmbeddingService:
     """Get or create EmbeddingService singleton."""
     global _embedding_service_instance
     if _embedding_service_instance is None:
-        _embedding_service_instance = EmbeddingService()
+        _embedding_service_instance = EmbeddingService(provider=get_embedding_provider())
     return _embedding_service_instance

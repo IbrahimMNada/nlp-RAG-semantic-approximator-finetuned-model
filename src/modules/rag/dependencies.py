@@ -38,10 +38,14 @@ def get_llm_provider() -> ILLMProvider:
         from .remote_models.ollama_consumer import OllamaConsumer
         return OllamaConsumer()
     
+    elif provider == "llamacpp":
+        from .remote_models.llamacpp_consumer import LlamaCppConsumer
+        return LlamaCppConsumer()
+    
     else:
         raise ValueError(
             f"Unsupported LLM provider: '{provider}'. "
-            f"Supported options are: chatgpt, claude, deepseek, ollama"
+            f"Supported options are: chatgpt, claude, deepseek, ollama, llamacpp"
         )
 
 

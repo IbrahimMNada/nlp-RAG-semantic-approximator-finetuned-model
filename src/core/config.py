@@ -60,6 +60,15 @@ class Settings(BaseSettings):
     OLLAMA_LLM_URL: str = "http://localhost:11435"  # Ollama for chat/LLM
     OLLAMA_LLM_MODEL: str = "llama3.2"  # Model for chat completions
     
+    # llama.cpp server settings
+    LLAMA_CPP_URL: str = "http://localhost:8081"  # llama-server endpoint
+    LLAMA_CPP_MODEL: str = "default"  # Model identifier (llama-server usually serves one model)
+    
+    # Embedding provider settings
+    EMBEDDING_PROVIDER: str = "ollama"  # Options: ollama, llamacpp
+    LLAMA_CPP_EMBEDDING_URL: str = "http://localhost:8081"  # llama-server embedding endpoint
+    LLAMA_CPP_EMBEDDING_MODEL: str = "default"  # Model for embeddings
+    
     # Seq logging settings
     SEQ_SERVER_URL: str = ""  # e.g., "http://localhost:5343"
     SEQ_API_KEY: str = ""

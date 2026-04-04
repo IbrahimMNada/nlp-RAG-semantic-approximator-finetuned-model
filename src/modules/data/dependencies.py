@@ -9,7 +9,7 @@ from fastapi import Depends
 from ...abstractions.interfaces.web_scraper_interface import IWebScraper
 from .services.web_scraper import DefaultWebScraper
 from .services.web_scraper_factory import WebScraperFactory
-from .services.embedding_service import EmbeddingService
+from .services.embedding_service import EmbeddingService, get_embedding_provider
 from .services.article_repository import ArticleRepository
 from .services.data_service import DataService
 
@@ -27,8 +27,8 @@ WebScraperFactoryDep = Annotated[WebScraperFactory, Depends(get_web_scraper_fact
 # ============== Embedding Service ==============
 @lru_cache()
 def get_embedding_service() -> EmbeddingService:
-    """Singleton embedding service."""
-    return EmbeddingService()
+    """Singleton embedding service with configured provider."""
+    return EmbeddingService(provider=get_embedding_provider())
 
 
 EmbeddingServiceDep = Annotated[EmbeddingService, Depends(get_embedding_service)]
