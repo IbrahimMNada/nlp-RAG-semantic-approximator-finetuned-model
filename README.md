@@ -75,7 +75,7 @@ The SEO generation module runs a custom fine-tune trained in this repo — full 
 | Base model | [`CohereLabs/c4ai-command-r7b-arabic-02-2025`](https://huggingface.co/CohereLabs/c4ai-command-r7b-arabic-02-2025) |
 | Method | QLoRA — PEFT adapters on a 4-bit NF4 double-quantized base (TRL `SFTTrainer`) |
 | Task | Arabic article → SEO meta description / meta tags |
-| Training data | [`ibrahim-nada/mawdoo3-seo-preprocessed-cleaned`](https://huggingface.co/datasets/ibrahim-nada/mawdoo3-seo-preprocessed-cleaned) — prompt/completion pairs prepared from the scraped article corpus, filtered to ≤ 450 words and > 10 tokens |
+| Training data | [`ibrahim-nada/xyz-seo-preprocessed-cleaned`](https://huggingface.co/datasets/ibrahim-nada/xyz-seo-preprocessed-cleaned) — prompt/completion pairs prepared from the scraped article corpus, filtered to ≤ 450 words and > 10 tokens |
 | Published adapter | [`ibrahim-nada/cmdr7b-ar-seo-qlora-v1-2025-12-20_19.08.11`](https://huggingface.co/ibrahim-nada/cmdr7b-ar-seo-qlora-v1-2025-12-20_19.08.11) |
 | Tracking | Weights & Biases (loss curve below), checkpoints pushed to HF Hub every 100 steps |
 | Serving | Lazy-loaded in-process, `BitsAndBytesConfig` 4-bit NF4 + fp16 compute, CPU offload fallback |
