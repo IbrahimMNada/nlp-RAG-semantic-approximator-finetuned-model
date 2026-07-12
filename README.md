@@ -1,6 +1,8 @@
 # nlp-RAG-semantic-approximator-finetuned-model
 
-An async FastAPI system that scrapes Arabic articles, generates vector embeddings, performs semantic similarity search via pgvector, runs a RAG pipeline with pluggable LLM providers, and generates Arabic SEO content using a QLoRA fine-tuned model.
+**An end-to-end Arabic RAG platform** — from raw web pages to grounded LLM answers — built as a production-style async FastAPI system. It covers the full retrieval-augmented generation lifecycle: scraping and cleaning Arabic articles, generating vector embeddings, HNSW-indexed semantic search over pgvector, a provider-agnostic RAG pipeline with source attribution and cost tracking, and a custom **QLoRA fine-tuned Command-R7B Arabic model** ([`ibrahim-nada/cmdr7b-ar-seo-qlora-v1`](https://huggingface.co/ibrahim-nada/cmdr7b-ar-seo-qlora-v1-2025-12-20_19.08.11)) served in-process for SEO generation.
+
+> Skip to the [**Showcase**](#showcase--real-inference-results) to see real inference results, or [Fine-Tuning](#fine-tuning-qlora-on-command-r7b-arabic) for training details.
 
 ## What It Does
 
@@ -16,9 +18,9 @@ Article URL ──► Scrape ──► Embed (Ollama) ──► Store in pgvecto
 
 ### Features
 
-- **Semantic Search** — HNSW-indexed cosine similarity on 1024-dim vectors (pgvector)
-- **RAG Pipeline** — Context retrieval → LLM call → grounded answers with sources and cost tracking
-- **SEO Generation** — Arabic meta description generation via QLoRA fine-tuned `c4ai-command-r7b-arabic` (4-bit quantized)
+- **RAG Pipeline** — Context retrieval → LLM call → grounded answers with sources and cost tracking, provider-agnostic (ChatGPT / Claude / DeepSeek / Ollama)
+- **Semantic Search** — HNSW-indexed cosine similarity on 1024-dim vectors (pgvector), at both article and paragraph granularity
+- **SEO Generation** — Arabic meta description generation via QLoRA fine-tuned `c4ai-command-r7b-arabic` (4-bit quantized), trained in this repo
 - **Article Scraping** — Async HTML extraction with content, metadata, and SEO data (httpx + BeautifulSoup4)
 - **Arabic NLP** — Diacritic stripping, Alef/Teh Marbuta normalization, hidden Unicode removal, stopword filtering
 - **Queue Processing** — Optional RabbitMQ consumer for async embedding generation (aio-pika)
@@ -35,6 +37,73 @@ Article URL ──► Scrape ──► Embed (Ollama) ──► Store in pgvecto
 - In-process event bus for inter-module communication (no HTTP self-calls)
 - Structured logging with correlation IDs and optional Seq integration
 - Generic `ResponseDto[T]` with `.success()` / `.fail()` factory methods
+
+## Showcase — Real Inference Results
+
+All screenshots below are real responses from the running system against a corpus of scraped Arabic articles.
+
+### RAG — Grounded Q&A with Sources & Cost Tracking
+
+A question in Arabic (*"تفسير حلم الذهب في المنام"* — interpretation of gold in a dream) is answered using retrieved paragraph context. Note the `context_used` flag, the `sources` that grounded the answer, token usage, and the computed API `cost`:
+
+![RAG ask-with-context response](docs/images/inference-samples/1773842232981.jpg)
+
+### Semantic Search — Article Level
+
+Given an article URL about *signs of stress in body language*, the system returns semantically related articles (grief in body language, body movements and psychological state, learning body language) ranked by cosine similarity — pure vector semantics, no keyword matching:
+
+![Article similarity search](docs/images/inference-samples/1773842231690.jpg)
+
+### Semantic Search — Paragraph Level
+
+A short free-text query (*"نقصان فيتامين د"* — vitamin D deficiency) retrieves the most relevant individual paragraphs across the entire corpus, each with its similarity score and source article:
+
+![Paragraph similarity search](docs/images/inference-samples/1773842233117.jpg)
+
+### SEO Generation — Fine-Tuned Model Inference
+
+The QLoRA fine-tuned Command-R7B Arabic model generates SEO meta tags for an Arabic article (about Cristiano Ronaldo) — served directly by the API with 4-bit quantization:
+
+![SEO meta tag generation](docs/images/inference-samples/1773842232976.jpg)
+
+## Fine-Tuning (QLoRA on Command-R7B Arabic)
+
+The SEO generation module runs a custom fine-tune trained in this repo — full training code in [cmdr7b_arabic_seo_lora.ipynb](src/modules/model_traning/cmdr7b_arabic_seo_lora.ipynb):
+
+| | |
+|--|--|
+| Base model | [`CohereLabs/c4ai-command-r7b-arabic-02-2025`](https://huggingface.co/CohereLabs/c4ai-command-r7b-arabic-02-2025) |
+| Method | QLoRA — PEFT adapters on a 4-bit NF4 double-quantized base (TRL `SFTTrainer`) |
+| Task | Arabic article → SEO meta description / meta tags |
+| Training data | [`ibrahim-nada/mawdoo3-seo-preprocessed-cleaned`](https://huggingface.co/datasets/ibrahim-nada/mawdoo3-seo-preprocessed-cleaned) — prompt/completion pairs prepared from the scraped article corpus, filtered to ≤ 450 words and > 10 tokens |
+| Published adapter | [`ibrahim-nada/cmdr7b-ar-seo-qlora-v1-2025-12-20_19.08.11`](https://huggingface.co/ibrahim-nada/cmdr7b-ar-seo-qlora-v1-2025-12-20_19.08.11) |
+| Tracking | Weights & Biases (loss curve below), checkpoints pushed to HF Hub every 100 steps |
+| Serving | Lazy-loaded in-process, `BitsAndBytesConfig` 4-bit NF4 + fp16 compute, CPU offload fallback |
+
+**Hyperparameters:**
+
+| LoRA | Training |
+|------|----------|
+| `r=16`, `alpha=32`, `dropout=0.1` | 3 epochs, batch size 8, max seq len 1024 |
+| Target modules: all attention (`q/k/v/o_proj`) + MLP (`gate/up/down_proj`) | LR `1e-4`, cosine schedule, warmup ratio 0.01 |
+| 4-bit NF4 double quant, bf16 compute (Ampere+) | `paged_adamw_32bit`, weight decay 0.001, max grad norm 0.3 |
+
+**Prompt template** (structured markers for instruction, article, and output):
+
+```
+<SEO_PROMPT_PREFIX>
+اكتب وصف ميتا للمقال التالي
+
+<ARTICLE_TEXT>
+{article}
+
+<SEO_OUTPUT_PREFIX>
+{meta_description}
+```
+
+Training loss over the fine-tuning run:
+
+![Training loss curve](docs/images/loss/loss-on-fine-tuned-model.png)
 
 ## Tech Stack
 
@@ -317,9 +386,11 @@ src/
     │   └── services/
     │       ├── seo_service.py       #     QLoRA model loading + inference
     │       └── dataset_service.py   #     HuggingFace dataset access
-    └── model_training/              # Fine-tuning scripts
-        ├── fine-tuner.py            #   QLoRA training loop
-        └── data_set_services.py     #   Dataset preparation
+    └── model_traning/               # Fine-tuning
+        ├── cmdr7b_arabic_seo_lora.ipynb  # Full QLoRA training run (Colab GPU)
+        ├── fine-tuner.py            #   Training imports/entry point
+        ├── data_set_services.py     #   Dataset preparation
+        └── notebooks/               #   Training datasets
 ```
 
 ## Database Schema
@@ -398,8 +469,4 @@ uvicorn src.main:app --reload                     # Start with hot reload
 ## License
 
 MIT — see [LICENSE](LICENSE).
-
-## License
-
-MIT License — see [LICENSE](LICENSE) for details.
 
